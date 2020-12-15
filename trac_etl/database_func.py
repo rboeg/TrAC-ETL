@@ -82,10 +82,15 @@ def csv_to_xmalla(csv):
         cur.execute("TRUNCATE public.xmalla;")
         cur.execute("ALTER SEQUENCE public.xmalla_id_seq RESTART WITH 1;")
         cur.execute("COPY public.xmalla (asignatura_codigo,asignatura_nombre,asignatura_desc,asignatura_creditos,"+
-        "asignatura_creditos_sct,program_id,program_name,malla_id,malla_agno,semestre,requisito,ciclo,linea_o_area,optativo,mencion)" +
+        "asignatura_creditos_sct,program_id,program_name,malla_id,malla_agno,semestre,requisito,ciclo,linea_o_area,optativo,mencion,dummy) " +
         "FROM '" + "/tmp/" + file_name + "' " +
         "DELIMITER ',' " +
         "CSV HEADER;")
+        cur.execute("UPDATE public.xmalla "+
+        "SET asignatura_codigo=TRIM(asignatura_codigo), asignatura_nombre=TRIM(asignatura_nombre), asignatura_desc=TRIM(asignatura_nombre), "+
+        "program_id=TRIM(program_id), program_name=TRIM(program_name), requisito=TRIM(requisito), ciclo=TRIM(ciclo), "+
+        "linea_o_area=TRIM(linea_o_area), mencion=TRIM(mencion) "+
+        "WHERE TRUE;")
 
         cur.close()
         os.remove('/tmp/'+file_name)
@@ -105,8 +110,9 @@ def ins_program_structure():
         cur = conn.cursor()
         cur.execute("TRUNCATE public.program_structure;")
         cur.execute("INSERT INTO public.program_structure (id, program_id, curriculum, semester, course_id, credits, requisites, mention, course_cat, mode, credits_sct, tags, elective)  " +
-        "SELECT id, program_id, malla_id, semestre, asignatura_codigo, asignatura_creditos, requisito, mencion, ciclo, " +
-        "CASE WHEN semestre=0 THEN 'anual' ELSE 'semestral' END AS mode, asignatura_creditos_sct, linea_o_area, optativo " +
+        "SELECT id, TRIM(program_id) AS program_id, malla_id, semestre, TRIM(asignatura_codigo) AS asignatura_codigo, "+
+        "asignatura_creditos, TRIM(requisito) AS requisito, TRIM(mencion) AS mencion, TRIM(ciclo) AS ciclo, " +
+        "CASE WHEN semestre=0 THEN 'anual' ELSE 'semestral' END AS mode, asignatura_creditos_sct, TRIM(linea_o_area) AS linea_o_area, optativo " +
         "FROM public.xmalla ORDER  BY program_id, malla_id, semestre, asignatura_codigo; ")
 
         cur.close()
@@ -126,7 +132,7 @@ def ins_course():
         cur = conn.cursor()
         cur.execute("TRUNCATE public.course;")
         cur.execute("INSERT INTO public.course (id,name,description,grading,grade_min,grade_max,grade_pass_min) "+
-        "SELECT asignatura_codigo, asignatura_nombre, asignatura_desc,'scale',1,7,4 " +
+        "SELECT TRIM(asignatura_codigo) AS asignatura_codigo, TRIM(asignatura_nombre) AS asignatura_nombre, TRIM(asignatura_desc) AS asignatura_desc,'scale',1,7,4 " +
         "FROM public.xmalla group by asignatura_codigo, asignatura_nombre, asignatura_desc;")
 
         cur.close()
@@ -149,10 +155,14 @@ def csv_to_xsituac_sem(csv):
         cur = conn.cursor()
         cur.execute("TRUNCATE public.xsituacion_semestral;")
         cur.execute("ALTER SEQUENCE public.xsituacion_semestral_id_seq RESTART WITH 1;")
-        cur.execute("COPY public.xsituacion_semestral (estudiante, agno, semestre, psp, pga, pga_carrera, cod_carrera, carrera, malla_actual, agno_ingreso, situacion_semestre, reincorporaciones, mencion) " +
+        cur.execute("COPY public.xsituacion_semestral (estudiante, agno, semestre, psp, pga, pga_carrera, cod_carrera, carrera, malla_actual, agno_ingreso, situacion_semestre, reincorporaciones, mencion, dummy) " +
         "FROM '" + "/tmp/" + file_name + "' " +
         "DELIMITER ',' " +
         "CSV HEADER;")
+
+        cur.execute("UPDATE public.xsituacion_semestral " +
+        "SET estudiante=TRIM(estudiante), carrera=TRIM(estudiante), situacion_semestre=TRIM(estudiante), mencion=TRIM(estudiante) " +
+        "WHERE TRUE;")
 
         cur.close()
         os.remove('/tmp/'+file_name)
@@ -173,8 +183,8 @@ def ins_student_term():
         cur.execute("TRUNCATE public.student_term;")
         cur.execute("INSERT INTO public.student_term (id,student_id,year,term,situation,t_gpa,c_gpa, "+
         "comments,program_id,curriculum,start_year,mention) "+
-        "SELECT id,estudiante,agno,semestre,situacion_semestre,round(psp::numeric,2),round(pga::numeric,2), "+
-		"reincorporaciones,cod_carrera,malla_actual,agno_ingreso,mencion "+
+        "SELECT id, TRIM(estudiante) AS estudiante, agno, semestre, TRIM(situacion_semestre) AS situacion_semestre, ROUND(psp::numeric,2), ROUND(pga::numeric,2), "+
+		"reincorporaciones, cod_carrera, malla_actual, agno_ingreso, TRIM(mencion) AS mencion "+
         "FROM xsituacion_semestral order by id; ")
 
         cur.close()
@@ -279,6 +289,11 @@ def csv_to_xcursadas(csv, truncate=False):
         "DELIMITER ',' " +
         "CSV HEADER;")
 
+        cur.execute("UPDATE public.xcursadas " +
+        "SET estudiante=TRIM(estudiante), asignatura=TRIM(asignatura), asignatura_equivalente=TRIM(asignatura_equivalente), concepto=TRIM(concepto), " +
+        "situacion=TRIM(situacion), responsable=TRIM(responsable), cod_carrera=TRIM(cod_carrera), malla_id=TRIM(malla_id), electivo_equivalente=TRIM(electivo_equivalente) " +
+        "WHERE TRUE;")
+
         cur.close()
         os.remove('/tmp/'+file_name)
     except (Exception, psycopg2.DatabaseError) as error:
@@ -314,8 +329,8 @@ INSERT INTO student_course
 SELECT   Max(id),
          agno,
          semestre,
-         estudiante,
-         asignatura,
+         TRIM(estudiante) AS estudiante,
+         TRIM(asignatura) AS asignatura,
          Max(asignatura_equivalente) AS course_equiv,
          Max(electivo_equivalente)   AS elect_equiv,
          String_agg("concepto",',')    AS registration,
@@ -326,7 +341,7 @@ SELECT   Max(id),
          ''                            AS instructors,
          Count(*)                      AS duplicates
 FROM     xcursadas
-GROUP BY estudiante, asignatura, agno, semestre
+GROUP BY TRIM(estudiante), TRIM(asignatura), agno, semestre
 ORDER BY agno,
          semestre,
          asignatura,
@@ -370,15 +385,15 @@ def cre_ins_xstudent_program():
         cur.execute("DROP TABLE IF EXISTS xstudent_program;")
         query = """
 CREATE TABLE public.xstudent_program AS
-SELECT   student_id,
-         program_id,
-         curriculum,
+SELECT   TRIM(student_id) AS student_id,
+         TRIM(program_id) AS program_id,
+         TRIM(curriculum) AS curriculum,
          Max(start_year)   AS start_year,
          Max(mention)      AS mention,
          Max(year*10+term) AS last_term,
          0.0               AS program_completion
 FROM     student_term
-GROUP BY student_id, program_id, curriculum
+GROUP BY TRIM(student_id), TRIM(program_id), TRIM(curriculum)
 ORDER BY program_id,
          curriculum,
          student_id ASC
@@ -431,24 +446,24 @@ SELECT student_id,
        course_id,
        SUM(passed) AS passed FROM (
 
-SELECT SP.student_id,
-       SP.program_id,
-       SP.curriculum,
+SELECT TRIM(SP.student_id) AS student_id,
+       TRIM(SP.program_id) AS program_id,
+       TRIM(SP.curriculum) AS curriculum,
        SP.start_year,
-       SP.mention,
+       TRIM(SP.mention) AS mention,
        SP.last_term,
-       PS.course_id,
+       TRIM(PS.course_id) AS course_id,
        CASE
-        WHEN SC.state = 'A' AND (SC.course_taken = PS.course_id
-                       OR SC.course_equiv = PS.course_id
-                       OR SC.elect_equiv = PS.course_id) THEN 1
+        WHEN SC.state = 'A' AND (TRIM(SC.course_taken) = TRIM(PS.course_id)
+                       OR TRIM(SC.course_equiv) = TRIM(PS.course_id)
+                       OR TRIM(SC.elect_equiv) = TRIM(PS.course_id)) THEN 1
         ELSE 0
         END
         AS passed
 FROM   xstudent_program SP
 
-LEFT JOIN program_structure PS ON (PS.program_id = SP.program_id AND PS.curriculum = SP.curriculum AND PS.mention = SP.mention)
-LEFT JOIN student_course SC ON (SP.student_id = SC.student_id AND (PS.course_id = SC.course_taken OR PS.course_id = SC.course_equiv OR PS.course_id = SC.elect_equiv))
+LEFT JOIN program_structure PS ON (TRIM(PS.program_id) = TRIM(SP.program_id) AND TRIM(PS.curriculum) = TRIM(SP.curriculum) AND TRIM(PS.mention) = TRIM(SP.mention))
+LEFT JOIN student_course SC ON (TRIM(SP.student_id) = TRIM(SC.student_id) AND (TRIM(PS.course_id) = TRIM(SC.course_taken) OR TRIM(PS.course_id) = TRIM(SC.course_equiv) OR TRIM(PS.course_id) = TRIM(SC.elect_equiv)))
 ORDER  BY SC.id, SP.program_id,
           SP.curriculum,
           SP.student_id,
@@ -486,7 +501,7 @@ INSERT INTO student
     ("id",
      "name",
      "state")
-SELECT DISTINCT( student_id ),
+SELECT DISTINCT( TRIM(student_id) ),
        '',
        'active'
 FROM   student_program;
@@ -517,16 +532,16 @@ CASE WHEN n_courses > 0 THEN round((1.0*n_passed_courses/n_courses)::NUMERIC, 2)
 AS completion
 
 FROM
-(SELECT  student_id,
-         program_id,
-         curriculum,
-         start_year,
-         mention,
-         last_term,
-         count(*) AS n_courses,
-         count(*) filter (WHERE passed > 0) AS n_passed_courses
+(SELECT  TRIM(student_id) AS student_id,
+        TRIM(program_id) AS program_id,
+        TRIM(curriculum) AS curriculum,
+        start_year,
+        TRIM(mention) AS mention,
+        last_term,
+        count(*) AS n_courses,
+        count(*) filter (WHERE passed > 0) AS n_passed_courses
 FROM     xtemp_sc
-GROUP BY student_id,program_id,curriculum,start_year,mention,last_term
+GROUP BY TRIM(student_id), TRIM(program_id), TRIM(curriculum), start_year, TRIM(mention), last_term
 ORDER BY program_id,
          curriculum,
          student_id ) tsc
@@ -766,10 +781,17 @@ def csv_to_inscritas2020(csv):
         cur = conn.cursor()
         cur.execute("TRUNCATE public.inscritas2020;")
         cur.execute("ALTER SEQUENCE public.inscritas2020_id_seq RESTART WITH 1;")
-        cur.execute("COPY public.inscritas2020 (estudiante,asignatura,asignatura_equivalente,agno,semestre,responsable,cod_carrera,malla_id,grupo_paralelo,electivo_equivalente,dummy) " +
+        """
+        # cur.execute("COPY public.inscritas2020 (estudiante,asignatura,asignatura_equivalente,agno,semestre,responsable,cod_carrera,malla_id,grupo_paralelo,electivo_equivalente,dummy) " +
+        """
+        cur.execute("COPY public.inscritas2020 (estudiante,agno,semestre,psp,pga,pga_carrera,cod_carrera,carrera,malla_actual,agno_ingreso,situacion_semestre,reincorporaciones,mencion,dummy) " +
         "FROM '" + "/tmp/" + file_name + "' " +
         "DELIMITER ',' " +
         "CSV HEADER;")
+        cur.execute("UPDATE public.inscritas2020 " +
+        "SET estudiante=TRIM(estudiante), asignatura=TRIM(asignatura), asignatura_equivalente=TRIM(asignatura_equivalente), " +
+        "responsable=TRIM(responsable), cod_carrera=TRIM(cod_carrera), malla_id=TRIM(malla_id), electivo_equivalente=TRIM(electivo_equivalente) " +
+        "WHERE TRUE;")
 
         cur.close()
         os.remove('/tmp/'+file_name)
@@ -813,7 +835,7 @@ FROM
     AND a.semestre = b.term
     AND a.estudiante = b.student_id
     AND a.asignatura = b.course_taken
-WHERE b.student_id IS NULL) insc
+WHERE a.asignatura IS NOT NULL AND b.student_id IS NULL) insc
 
 GROUP BY agno,semestre,estudiante,asignatura;
         """
@@ -841,6 +863,7 @@ INSERT INTO public.student_term
 SELECT 500000 + row_number() OVER (ORDER BY estudiante, agno, semestre, cod_carrera) AS
        rownum,estudiante,agno,semestre,'',0,0,'',cod_carrera,malla_id,0
 FROM   inscritas2020
+WHERE  malla_id IS NOT NULL 
 GROUP  BY estudiante,agno,semestre,cod_carrera,malla_id;
         """
         cur.execute(query)
