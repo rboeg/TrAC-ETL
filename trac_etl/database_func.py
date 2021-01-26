@@ -161,7 +161,7 @@ def csv_to_xsituac_sem(csv):
         "CSV HEADER;")
 
         cur.execute("UPDATE public.xsituacion_semestral " +
-        "SET estudiante=TRIM(estudiante), carrera=TRIM(estudiante), situacion_semestre=TRIM(estudiante), mencion=TRIM(estudiante) " +
+        "SET estudiante=TRIM(estudiante), carrera=TRIM(carrera), situacion_semestre=TRIM(situacion_semestre), mencion=TRIM(mencion) " +
         "WHERE TRUE;")
 
         cur.close()
@@ -782,9 +782,9 @@ def csv_to_inscritas2020(csv):
         cur.execute("TRUNCATE public.inscritas2020;")
         cur.execute("ALTER SEQUENCE public.inscritas2020_id_seq RESTART WITH 1;")
         """
-        # cur.execute("COPY public.inscritas2020 (estudiante,asignatura,asignatura_equivalente,agno,semestre,responsable,cod_carrera,malla_id,grupo_paralelo,electivo_equivalente,dummy) " +
+        # cur.execute("COPY public.inscritas2020 (estudiante,agno,semestre,psp,pga,pga_carrera,cod_carrera,carrera,malla_actual,agno_ingreso,situacion_semestre,reincorporaciones,mencion,dummy) " +
         """
-        cur.execute("COPY public.inscritas2020 (estudiante,agno,semestre,psp,pga,pga_carrera,cod_carrera,carrera,malla_actual,agno_ingreso,situacion_semestre,reincorporaciones,mencion,dummy) " +
+        cur.execute("COPY public.inscritas2020 (estudiante,asignatura,asignatura_equivalente,agno,semestre,responsable,cod_carrera,malla_id,grupo_paralelo,electivo_equivalente,dummy) " +
         "FROM '" + "/tmp/" + file_name + "' " +
         "DELIMITER ',' " +
         "CSV HEADER;")
@@ -863,7 +863,7 @@ INSERT INTO public.student_term
 SELECT 500000 + row_number() OVER (ORDER BY estudiante, agno, semestre, cod_carrera) AS
        rownum,estudiante,agno,semestre,'',0,0,'',cod_carrera,malla_id,0
 FROM   inscritas2020
-WHERE  malla_id IS NOT NULL 
+WHERE  malla_id IS NOT NULL
 GROUP  BY estudiante,agno,semestre,cod_carrera,malla_id;
         """
         cur.execute(query)
